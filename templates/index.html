@@ -384,17 +384,22 @@
         // Store the last response and debug log
         let lastResponse = null;
         let lastDebugLog = null;
+        let lastToolsUsed = null;
         let currentAgent = null;
 
         // Function to add a message to the chat
-        function addMessage(type, content) {
+        function addMessage(type, content, toolsUsed = []) {
             const responseElement = document.getElementById('response');
             const loadingElement = document.querySelector('.loading');
             
             if (type === 'user') {
                 responseElement.innerHTML += `<p><strong>You:</strong> ${content}</p>`;
             } else if (type === 'ai') {
-                responseElement.innerHTML += `<p><strong>AI:</strong> ${content}</p>`;
+                let messageHtml = `<p><strong>AI:</strong> ${content}</p>`;
+                if (toolsUsed && toolsUsed.length > 0) {
+                    messageHtml += `<p class="text-muted"><small>Tools used: ${toolsUsed.join(', ')}</small></p>`;
+                }
+                responseElement.innerHTML += messageHtml;
             } else if (type === 'error') {
                 responseElement.innerHTML += `<p class="text-danger"><strong>Error:</strong> ${content}</p>`;
             }
@@ -457,9 +462,10 @@
                     // Store the response and debug log
                     lastResponse = data.response;
                     lastDebugLog = data.debug_log;
+                    lastToolsUsed = data.tools_used;
                     
                     // Add AI response to chat
-                    addMessage('ai', data.response);
+                    addMessage('ai', data.response, data.tools_used);
                     
                     // Update debug log display based on checkbox state
                     updateDebugLogDisplay();

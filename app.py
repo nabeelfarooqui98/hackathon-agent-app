@@ -153,6 +153,8 @@ def ask_agent(agent_name):
             return jsonify({'error': 'No question provided'}), 400
 
         debug_log = []
+        tools_used = []  # Track tools used in this interaction
+
         debug_log.append({
             'timestamp': datetime.now().isoformat(),
             'event': 'request_received',
@@ -244,6 +246,8 @@ Otherwise, respond normally to the user's question."""
                 tool = next((t for t in available_tools if t.name == tool_name), None)
                 
                 if tool:
+                    tools_used.append(tool_name)  # Add tool to used tools list
+                    
                     debug_log.append({
                         'timestamp': datetime.now().isoformat(),
                         'event': 'tool_execution_started',
@@ -322,12 +326,14 @@ Otherwise, respond normally to the user's question."""
             'agent_name': agent_name,
             'question': question,
             'response': response,
+            'tools_used': tools_used,
             'debug_log': debug_log
         }
         storage.save_interaction_log(agent_name, log_data)
 
         return jsonify({
             'response': response,
+            'tools_used': tools_used,
             'debug_log': debug_log
         })
 
