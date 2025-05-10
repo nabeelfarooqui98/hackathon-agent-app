@@ -471,5 +471,25 @@ def delete_agent(agent_name):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/tools/<tool_name>', methods=['DELETE'])
+def delete_tool(tool_name):
+    try:
+        # Check if any agent is using this tool
+        agents = storage.load_agents()
+        agents_using_tool = [agent.name for agent in agents if tool_name in agent.tools]
+        
+        if agents_using_tool:
+            return jsonify({
+                'error': f'Cannot delete tool "{tool_name}" as it is being used by the following agents: {", ".join(agents_using_tool)}'
+            }), 400
+
+        # If no agents are using the tool, proceed with deletion
+        tools = storage.load_tools()
+        tools = [tool for tool in tools if tool.name != tool_name]
+        storage.save_tools(tools)
+        return jsonify({'message': f'Tool {tool_name} deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True) 
