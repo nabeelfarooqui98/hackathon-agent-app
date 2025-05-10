@@ -1,33 +1,16 @@
 [
   {
-    "name": "test",
-    "description": "test1",
-    "type": "github",
-    "config": {},
-    "is_active": true,
-    "created_at": "2025-05-10T15:39:16.908566"
-  },
-  {
-    "name": "Hello World Maker",
-    "description": "Colors the workd",
-    "type": "slack",
-    "config": {},
-    "is_active": true,
-    "created_at": "2025-05-10T15:39:16.908566"
-  },
-  {
-    "name": "Github",
-    "description": "test2",
-    "type": "github",
+    "name": "DogFacts",
+    "description": "A tool to get multiple facts about dogs",
+    "type": "http_api",
     "config": {
-      "capabilities": [
-        "Code review",
-        "Best practices check",
-        "Security analysis",
-        "Performance optimization"
-      ]
+      "base_url": "https://dogapi.dog/api/v2",
+      "http_method": "GET",
+      "endpoint_path": "/facts",
+      "headers": {},
+      "body_template": ""
     },
-    "is_active": true,
-    "created_at": "2025-05-10T15:39:16.908566"
+    "created_at": "2025-05-10T15:57:31.099824",
+    "last_used": null
   }
 ]

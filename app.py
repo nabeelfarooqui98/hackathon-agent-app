@@ -35,19 +35,33 @@ def list_agents():
 
 @app.route('/agents', methods=['POST'])
 def create_agent():
-    data = request.json
-    tools = [Tool(**tool) for tool in data.get('tools', [])]
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+
+    # Get existing tools by name
+    tool_names = data.get('tools', [])
+    tools = []
+    for tool_name in tool_names:
+        tool = storage.get_tool(tool_name)
+        if tool:
+            tools.append(tool)
+        else:
+            return jsonify({'error': f'Tool not found: {tool_name}'}), 404
+
     agent = Agent(
         name=data['name'],
         description=data['description'],
-        tools=tools,
         model=data.get('model', 'meta-llama/llama-4-scout-17b-16e-instruct'),
-        temperature=data.get('temperature', 0.7),
-        max_tokens=data.get('max_tokens', 1024)
+        temperature=float(data.get('temperature', 0.7)),
+        max_tokens=int(data.get('max_tokens', 1024)),
+        tools=tool_names  # Store tool names instead of Tool objects
     )
+
     agents = storage.load_agents()
     agents.append(agent)
     storage.save_agents(agents)
+
     return jsonify(agent.to_dict()), 201
 
 @app.route('/tools', methods=['GET'])

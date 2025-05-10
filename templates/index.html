@@ -115,15 +115,52 @@
                                     <div class="mb-3">
                                         <label for="toolType" class="form-label">Type</label>
                                         <select class="form-control" id="toolType" required>
-                                            <option value="github">GitHub</option>
-                                            <option value="slack">Slack</option>
-                                            <option value="jira">Jira</option>
-                                            <option value="custom">Custom</option>
+                                            <option value="http_api">HTTP API</option>
                                         </select>
                                     </div>
-                                    <div class="mb-3">
-                                        <label for="toolConfig" class="form-label">Configuration (JSON)</label>
-                                        <textarea class="form-control" id="toolConfig" rows="3" required>{}</textarea>
+                                    
+                                    <!-- HTTP API Configuration -->
+                                    <div id="httpApiConfig" class="mb-3">
+                                        <div class="mb-3">
+                                            <label for="baseUrl" class="form-label">Base URL</label>
+                                            <input type="url" class="form-control" id="baseUrl" placeholder="https://api.example.com">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="httpMethod" class="form-label">HTTP Method</label>
+                                            <select class="form-control" id="httpMethod">
+                                                <option value="GET">GET</option>
+                                                <option value="POST">POST</option>
+                                                <option value="PUT">PUT</option>
+                                                <option value="DELETE">DELETE</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="endpointPath" class="form-label">Endpoint Path</label>
+                                            <input type="text" class="form-control" id="endpointPath" placeholder="/users">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Headers</label>
+                                            <div id="headersContainer">
+                                                <div class="header-pair mb-2">
+                                                    <div class="row">
+                                                        <div class="col">
+                                                            <input type="text" class="form-control" placeholder="Key" name="headerKey">
+                                                        </div>
+                                                        <div class="col">
+                                                            <input type="text" class="form-control" placeholder="Value" name="headerValue">
+                                                        </div>
+                                                        <div class="col-auto">
+                                                            <button type="button" class="btn btn-danger btn-sm remove-header">×</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button type="button" class="btn btn-secondary btn-sm mt-2" id="addHeader">Add Header</button>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="bodyTemplate" class="form-label">Body Template (JSON)</label>
+                                            <textarea class="form-control" id="bodyTemplate" rows="3" placeholder='{ "key": "{{value}}" }'></textarea>
+                                        </div>
                                     </div>
                                     <button type="submit" class="btn btn-primary">Create Tool</button>
                                 </form>
@@ -239,15 +276,59 @@
             }
         });
 
+        // Add Header Button Handler
+        document.getElementById('addHeader').addEventListener('click', () => {
+            const container = document.getElementById('headersContainer');
+            const headerPair = document.createElement('div');
+            headerPair.className = 'header-pair mb-2';
+            headerPair.innerHTML = `
+                <div class="row">
+                    <div class="col">
+                        <input type="text" class="form-control" placeholder="Key" name="headerKey">
+                    </div>
+                    <div class="col">
+                        <input type="text" class="form-control" placeholder="Value" name="headerValue">
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" class="btn btn-danger btn-sm remove-header">×</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(headerPair);
+        });
+
+        // Remove Header Button Handler
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-header')) {
+                e.target.closest('.header-pair').remove();
+            }
+        });
+
         // Create Tool Form Handler
         document.getElementById('createToolForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
+            // Collect headers
+            const headers = {};
+            document.querySelectorAll('.header-pair').forEach(pair => {
+                const key = pair.querySelector('[name="headerKey"]').value;
+                const value = pair.querySelector('[name="headerValue"]').value;
+                if (key && value) {
+                    headers[key] = value;
+                }
+            });
+
             const toolData = {
                 name: document.getElementById('toolName').value,
                 description: document.getElementById('toolDescription').value,
                 type: document.getElementById('toolType').value,
-                config: JSON.parse(document.getElementById('toolConfig').value)
+                config: {
+                    base_url: document.getElementById('baseUrl').value,
+                    http_method: document.getElementById('httpMethod').value,
+                    endpoint_path: document.getElementById('endpointPath').value,
+                    headers: headers,
+                    body_template: document.getElementById('bodyTemplate').value
+                }
             };
 
             try {
@@ -262,6 +343,22 @@
                 if (response.ok) {
                     loadTools();
                     e.target.reset();
+                    // Clear headers
+                    document.getElementById('headersContainer').innerHTML = `
+                        <div class="header-pair mb-2">
+                            <div class="row">
+                                <div class="col">
+                                    <input type="text" class="form-control" placeholder="Key" name="headerKey">
+                                </div>
+                                <div class="col">
+                                    <input type="text" class="form-control" placeholder="Value" name="headerValue">
+                                </div>
+                                <div class="col-auto">
+                                    <button type="button" class="btn btn-danger btn-sm remove-header">×</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
                 } else {
                     const data = await response.json();
                     alert(`Error: ${data.error}`);
