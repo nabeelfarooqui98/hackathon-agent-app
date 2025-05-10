@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCP - Model Context Protocol</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         .response-container {
             min-height: 100px;
@@ -506,12 +507,42 @@
                 agentsList.innerHTML = agents.map(agent => `
                     <div class="card mb-2">
                         <div class="card-body">
-                            <h5 class="card-title">${agent.name}</h5>
-                            <p class="card-text">${agent.description}</p>
-                            <small class="text-muted">Model: ${agent.model}</small>
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h5 class="card-title">${agent.name}</h5>
+                                    <p class="card-text">${agent.description}</p>
+                                    <small class="text-muted">Model: ${agent.model}</small>
+                                </div>
+                                <button class="btn btn-danger btn-sm delete-agent" data-agent-name="${agent.name}">
+                                    <i class="bi bi-trash"></i> Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
                 `).join('');
+
+                // Add event listeners for delete buttons
+                document.querySelectorAll('.delete-agent').forEach(button => {
+                    button.addEventListener('click', async (e) => {
+                        const agentName = e.target.closest('.delete-agent').dataset.agentName;
+                        if (confirm(`Are you sure you want to delete the agent "${agentName}"?`)) {
+                            try {
+                                const response = await fetch(`/agents/${agentName}`, {
+                                    method: 'DELETE'
+                                });
+                                
+                                if (response.ok) {
+                                    loadAgents(); // Reload the agents list
+                                } else {
+                                    const data = await response.json();
+                                    alert(`Error: ${data.error}`);
+                                }
+                            } catch (error) {
+                                alert(`Error: ${error.message}`);
+                            }
+                        }
+                    });
+                });
             } catch (error) {
                 console.error('Error loading agents:', error);
             }

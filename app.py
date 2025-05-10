@@ -460,5 +460,16 @@ Which agent would be most suitable for this question? Respond with a JSON object
             pass
         return jsonify({'error': str(e)}), 500
 
+@app.route('/agents/<agent_name>', methods=['DELETE'])
+def delete_agent(agent_name):
+    try:
+        agents = storage.load_agents()
+        # Find and remove the agent
+        agents = [agent for agent in agents if agent.name != agent_name]
+        storage.save_agents(agents)
+        return jsonify({'message': f'Agent {agent_name} deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True) 
