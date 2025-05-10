@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Question Answering</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .response-container {
+            min-height: 100px;
+            margin-top: 20px;
+        }
+        .loading {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">AI Question Answering</h1>
+        
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <form id="questionForm">
+                            <div class="mb-3">
+                                <label for="question" class="form-label">Your Question:</label>
+                                <textarea class="form-control" id="question" rows="3" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Ask AI</button>
+                        </form>
+
+                        <div class="loading mt-3">
+                            <div class="d-flex justify-content-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="response-container">
+                            <div class="card">
+                                <div class="card-header">
+                                    AI Response
+                                </div>
+                                <div class="card-body">
+                                    <p id="response" class="card-text"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('questionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const question = document.getElementById('question').value;
+            const responseElement = document.getElementById('response');
+            const loadingElement = document.querySelector('.loading');
+            
+            // Show loading spinner
+            loadingElement.style.display = 'block';
+            responseElement.textContent = '';
+            
+            try {
+                const response = await fetch('/ask', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ question }),
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    responseElement.textContent = data.response;
+                } else {
+                    responseElement.textContent = `Error: ${data.error}`;
+                }
+            } catch (error) {
+                responseElement.textContent = `Error: ${error.message}`;
+            } finally {
+                loadingElement.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html> 
