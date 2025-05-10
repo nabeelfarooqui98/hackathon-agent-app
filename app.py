@@ -341,5 +341,124 @@ Otherwise, respond normally to the user's question."""
         print(f"Error in /ask endpoint: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/recommend_agent', methods=['POST'])
+def recommend_agent():
+    try:
+        data = request.get_json()
+        question = data.get('question')
+        
+        if not question:
+            return jsonify({'error': 'No question provided'}), 400
+
+        # Get all agents
+        agents = storage.load_agents()
+        
+        if not agents:
+            return jsonify({'error': 'No agents available'}), 404
+
+        # Create a system message for agent selection
+        system_message = """You are an AI assistant that helps select the most appropriate agent for a given question.
+You will be given a list of available agents and their capabilities.
+Your task is to analyze the question and select the most suitable agent.
+You must respond with a valid JSON object in this exact format:
+{
+    "selected_agent": "agent_name",
+    "reason": "explanation of why this agent is the best choice"
+}
+
+Do not include any other text or explanation outside the JSON object."""
+
+        # Create the prompt with agent information
+        agent_info = json.dumps([{
+            'name': agent.name,
+            'description': agent.description,
+            'tools': agent.tools
+        } for agent in agents], indent=2)
+
+        prompt = f"""Available agents:
+{agent_info}
+
+Question: {question}
+
+Which agent would be most suitable for this question? Respond with a JSON object only."""
+
+        # Get recommendation from Groq
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": system_message
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            model="meta-llama/llama-4-scout-17b-16e-instruct",
+            temperature=0.3,
+            max_tokens=1024,
+        )
+
+        response_text = chat_completion.choices[0].message.content.strip()
+        
+        # Try to parse the response as JSON
+        try:
+            recommendation = json.loads(response_text)
+        except json.JSONDecodeError as e:
+            print(f"Error parsing LLM response: {str(e)}")
+            print(f"Raw response: {response_text}")
+            # If parsing fails, try to extract JSON from the response
+            try:
+                # Look for JSON-like structure in the response
+                import re
+                json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+                if json_match:
+                    recommendation = json.loads(json_match.group())
+                else:
+                    raise ValueError("No JSON object found in response")
+            except Exception as e:
+                print(f"Error extracting JSON: {str(e)}")
+                # If all parsing attempts fail, use the first available agent
+                return jsonify({
+                    'agent': agents[0].name,
+                    'reason': f"Default agent selected due to parsing error. Original error: {str(e)}"
+                })
+
+        # Verify the response has the required fields
+        if not isinstance(recommendation, dict) or 'selected_agent' not in recommendation:
+            # If response is invalid, use the first available agent
+            return jsonify({
+                'agent': agents[0].name,
+                'reason': "Default agent selected due to invalid response format"
+            })
+        
+        # Verify the recommended agent exists
+        selected_agent = next((agent for agent in agents if agent.name == recommendation['selected_agent']), None)
+        if not selected_agent:
+            # If recommended agent doesn't exist, use the first available agent
+            return jsonify({
+                'agent': agents[0].name,
+                'reason': f"Default agent selected. Recommended agent '{recommendation['selected_agent']}' not found"
+            })
+
+        return jsonify({
+            'agent': selected_agent.name,
+            'reason': recommendation.get('reason', 'No reason provided')
+        })
+
+    except Exception as e:
+        print(f"Error in /recommend_agent endpoint: {str(e)}")
+        # If any other error occurs, use the first available agent
+        try:
+            agents = storage.load_agents()
+            if agents:
+                return jsonify({
+                    'agent': agents[0].name,
+                    'reason': f"Default agent selected due to error: {str(e)}"
+                })
+        except:
+            pass
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True) 

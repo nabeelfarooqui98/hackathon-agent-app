@@ -188,11 +188,6 @@
                             <div class="card-body">
                                 <form id="questionForm">
                                     <div class="mb-3">
-                                        <label for="agentSelect" class="form-label">Select Agent</label>
-                                        <select class="form-control" id="agentSelect" required>
-                                        </select>
-                                    </div>
-                                    <div class="mb-3">
                                         <label for="question" class="form-label">Your Question:</label>
                                         <textarea class="form-control" id="question" rows="3" required 
                                             onkeydown="if(event.keyCode === 13 && !event.shiftKey) { event.preventDefault(); document.getElementById('questionForm').dispatchEvent(new Event('submit')); }"></textarea>
@@ -388,7 +383,7 @@
         let currentAgent = null;
 
         // Function to add a message to the chat
-        function addMessage(type, content, toolsUsed = []) {
+        function addMessage(type, content, toolsUsed = [], agentInfo = null) {
             const responseElement = document.getElementById('response');
             const loadingElement = document.querySelector('.loading');
             
@@ -398,6 +393,9 @@
                 let messageHtml = `<p><strong>AI:</strong> ${content}</p>`;
                 if (toolsUsed && toolsUsed.length > 0) {
                     messageHtml += `<p class="text-muted"><small>Tools used: ${toolsUsed.join(', ')}</small></p>`;
+                }
+                if (agentInfo) {
+                    messageHtml += `<p class="text-info"><small>Handled by: ${agentInfo.agent} - ${agentInfo.reason}</small></p>`;
                 }
                 responseElement.innerHTML += messageHtml;
             } else if (type === 'error') {
@@ -433,18 +431,32 @@
             
             if (!question) return;
 
-            // Get selected agent
-            currentAgent = document.getElementById('agentSelect').value;
-            if (!currentAgent) {
-                addMessage('error', 'Please select an agent first');
-                return;
-            }
-
             // Show loading and clear previous response
             loadingElement.style.display = 'block';
             document.getElementById('response').innerHTML = '';
             
             try {
+                // First, get agent recommendation
+                const recommendResponse = await fetch('/recommend_agent', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        question: question
+                    })
+                });
+
+                const recommendData = await recommendResponse.json();
+                
+                if (!recommendResponse.ok) {
+                    addMessage('error', recommendData.error || 'Error getting agent recommendation');
+                    return;
+                }
+
+                currentAgent = recommendData.agent;
+                
+                // Now send the question to the recommended agent
                 const response = await fetch(`/ask/${currentAgent}`, {
                     method: 'POST',
                     headers: {
@@ -464,8 +476,11 @@
                     lastDebugLog = data.debug_log;
                     lastToolsUsed = data.tools_used;
                     
-                    // Add AI response to chat
-                    addMessage('ai', data.response, data.tools_used);
+                    // Add AI response to chat with agent info
+                    addMessage('ai', data.response, data.tools_used, {
+                        agent: currentAgent,
+                        reason: recommendData.reason
+                    });
                     
                     // Update debug log display based on checkbox state
                     updateDebugLogDisplay();
@@ -497,12 +512,6 @@
                         </div>
                     </div>
                 `).join('');
-
-                // Update agent select in chat tab
-                const agentSelect = document.getElementById('agentSelect');
-                agentSelect.innerHTML = agents.map(agent => 
-                    `<option value="${agent.name}">${agent.name}</option>`
-                ).join('');
             } catch (error) {
                 console.error('Error loading agents:', error);
             }
