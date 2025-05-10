@@ -1,17 +1,7 @@
 [
   {
-    "name": "Text reader",
-    "description": "asd",
-    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
-    "temperature": 0.7,
-    "max_tokens": 1024,
-    "tools": [],
-    "created_at": "2025-05-10T15:59:28.822633",
-    "last_active": null
-  },
-  {
-    "name": "dsa",
-    "description": "dsa",
+    "name": "ConversationAgent",
+    "description": "Conversation Agent",
     "model": "meta-llama/llama-4-scout-17b-16e-instruct",
     "temperature": 0.7,
     "max_tokens": 1024,
@@ -19,6 +9,6 @@
       "DogFacts"
     ],
     "created_at": "2025-05-10T15:59:33.277214",
-    "last_active": null
+    "last_active": "2025-05-10T16:06:10.471007"
   }
 ]

@@ -1,12 +1,12 @@
 [
   {
     "name": "DogFacts",
-    "description": "A tool to get multiple facts about dogs",
+    "description": "A tool to get facts about dogs, it does not need any parameters or body. it is a simple GET call",
     "type": "http_api",
     "config": {
       "base_url": "https://dogapi.dog/api/v2",
       "http_method": "GET",
-      "endpoint_path": "/facts",
+      "endpoint_path": "/facts?limit=1",
       "headers": {},
       "body_template": ""
     },

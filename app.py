@@ -6,6 +6,10 @@ import pathlib
 from datetime import datetime
 from models import Agent, Tool
 from storage import Storage
+import requests
+from urllib.parse import urljoin
+import json
+from string import Template
 
 # Load environment variables
 load_dotenv(verbose=True)
@@ -78,6 +82,39 @@ def create_tool():
     storage.save_tools(tools)
     return jsonify(vars(tool)), 201
 
+def execute_http_tool(tool: Tool, params: dict) -> str:
+    """Execute an HTTP API tool with the given parameters."""
+    try:
+        # Construct the full URL
+        url = urljoin(tool.config['base_url'], tool.config['endpoint_path'])
+        
+        # Prepare headers
+        headers = tool.config['headers'].copy()
+        
+        # Prepare body if it exists
+        body = None
+        if tool.config['body_template']:
+            # Replace placeholders in the template
+            template = Template(tool.config['body_template'])
+            body = json.loads(template.substitute(params))
+        
+        # Make the request
+        response = requests.request(
+            method=tool.config['http_method'],
+            url=url,
+            headers=headers,
+            json=body if body else None,
+            params=params if tool.config['http_method'] == 'GET' else None
+        )
+        
+        # Update last_used timestamp
+        tool.last_used = datetime.now()
+        
+        # Return the response
+        return f"Tool '{tool.name}' executed successfully. Response: {response.text}"
+    except Exception as e:
+        return f"Error executing tool '{tool.name}': {str(e)}"
+
 @app.route('/ask/<agent_name>', methods=['POST'])
 def ask_agent(agent_name):
     try:
@@ -98,9 +135,35 @@ def ask_agent(agent_name):
                 break
         storage.save_agents(agents)
 
+        # Get available tools for the agent
+        available_tools = []
+        for tool_name in agent.tools:
+            tool = storage.get_tool(tool_name)
+            if tool:
+                available_tools.append(tool)
+
+        # Create a system message that includes tool information
+        system_message = f"""You are an AI assistant with access to the following tools:
+{json.dumps([{'name': tool.name, 'description': tool.description} for tool in available_tools], indent=2)}
+
+When you need to use a tool, respond with a JSON object in this format:
+{{
+    "tool": "tool_name",
+    "params": {{
+        "param1": "value1",
+        "param2": "value2"
+    }}
+}}
+
+Otherwise, respond normally to the user's question."""
+
         # Get response from Groq
         chat_completion = client.chat.completions.create(
             messages=[
+                {
+                    "role": "system",
+                    "content": system_message
+                },
                 {
                     "role": "user",
                     "content": question
@@ -112,6 +175,50 @@ def ask_agent(agent_name):
         )
 
         response = chat_completion.choices[0].message.content
+
+        # Check if the response is a tool usage request
+        try:
+            tool_request = json.loads(response)
+            if isinstance(tool_request, dict) and 'tool' in tool_request and 'params' in tool_request:
+                # Find the requested tool
+                tool_name = tool_request['tool']
+                tool = next((t for t in available_tools if t.name == tool_name), None)
+                
+                if tool:
+                    # Execute the tool
+                    tool_result = execute_http_tool(tool, tool_request['params'])
+                    
+                    # Get a final response from the AI about the tool result
+                    final_response = client.chat.completions.create(
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": system_message
+                            },
+                            {
+                                "role": "user",
+                                "content": question
+                            },
+                            {
+                                "role": "assistant",
+                                "content": response
+                            },
+                            {
+                                "role": "user",
+                                "content": f"Tool execution result: {tool_result}"
+                            }
+                        ],
+                        model=agent.model,
+                        temperature=agent.temperature,
+                        max_tokens=agent.max_tokens,
+                    )
+                    response = final_response.choices[0].message.content
+                else:
+                    response = f"Error: Tool '{tool_name}' not found or not available to this agent."
+        except json.JSONDecodeError:
+            # Response is not a tool usage request, use it as is
+            pass
+
         return jsonify({'response': response})
 
     except Exception as e:
