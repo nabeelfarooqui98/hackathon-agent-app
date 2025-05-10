@@ -1,0 +1,13 @@
+[
+  {
+    "name": "Computer Science Helper",
+    "description": "Helps the user answer computer science questions",
+    "tools": [],
+    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "temperature": 0.7,
+    "max_tokens": 1024,
+    "is_active": true,
+    "created_at": "2025-05-10T15:30:42.619002",
+    "last_active": "2025-05-10T15:31:19.995483"
+  }
+]

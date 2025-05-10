@@ -3,11 +3,15 @@ import os
 from groq import Groq
 from dotenv import load_dotenv
 import pathlib
+from datetime import datetime
+from models import Agent, Tool
+from storage import Storage
 
 # Load environment variables
 load_dotenv(verbose=True)
 
 app = Flask(__name__)
+storage = Storage()
 
 # Debug: Print if API key is loaded
 api_key = os.getenv("GROQ_API_KEY")
@@ -24,12 +28,61 @@ client = Groq()
 def home():
     return render_template('index.html')
 
-@app.route('/ask', methods=['POST'])
-def ask():
+@app.route('/agents', methods=['GET'])
+def list_agents():
+    agents = storage.load_agents()
+    return jsonify([agent.to_dict() for agent in agents])
+
+@app.route('/agents', methods=['POST'])
+def create_agent():
+    data = request.json
+    tools = [Tool(**tool) for tool in data.get('tools', [])]
+    agent = Agent(
+        name=data['name'],
+        description=data['description'],
+        tools=tools,
+        model=data.get('model', 'meta-llama/llama-4-scout-17b-16e-instruct'),
+        temperature=data.get('temperature', 0.7),
+        max_tokens=data.get('max_tokens', 1024)
+    )
+    agents = storage.load_agents()
+    agents.append(agent)
+    storage.save_agents(agents)
+    return jsonify(agent.to_dict()), 201
+
+@app.route('/tools', methods=['GET'])
+def list_tools():
+    tools = storage.load_tools()
+    return jsonify([vars(tool) for tool in tools])
+
+@app.route('/tools', methods=['POST'])
+def create_tool():
+    data = request.json
+    tool = Tool(**data)
+    tools = storage.load_tools()
+    tools.append(tool)
+    storage.save_tools(tools)
+    return jsonify(vars(tool)), 201
+
+@app.route('/ask/<agent_name>', methods=['POST'])
+def ask_agent(agent_name):
     try:
+        agent = storage.get_agent(agent_name)
+        if not agent:
+            return jsonify({'error': f'Agent {agent_name} not found'}), 404
+
         question = request.json.get('question')
         if not question:
             return jsonify({'error': 'No question provided'}), 400
+
+        # Update agent's last active timestamp
+        agent.last_active = datetime.now()
+        agents = storage.load_agents()
+        for i, a in enumerate(agents):
+            if a.name == agent_name:
+                agents[i] = agent
+                break
+        storage.save_agents(agents)
 
         # Get response from Groq
         chat_completion = client.chat.completions.create(
@@ -39,16 +92,16 @@ def ask():
                     "content": question
                 }
             ],
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            temperature=0.7,
-            max_tokens=1024,
+            model=agent.model,
+            temperature=agent.temperature,
+            max_tokens=agent.max_tokens,
         )
 
         response = chat_completion.choices[0].message.content
         return jsonify({'response': response})
 
     except Exception as e:
-        print(f"Error in /ask endpoint: {str(e)}")  # Add error logging
+        print(f"Error in /ask endpoint: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
