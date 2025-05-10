@@ -15,12 +15,15 @@ class Storage:
         self.data_dir = data_dir
         self.agents_file = os.path.join(data_dir, "agents.json")
         self.tools_file = os.path.join(data_dir, "tools.json")
+        self.logs_dir = os.path.join(data_dir, "logs")
         self._ensure_data_dir()
         self._initialize_files()
 
     def _ensure_data_dir(self):
         if not os.path.exists(self.data_dir):
             os.makedirs(self.data_dir)
+        if not os.path.exists(self.logs_dir):
+            os.makedirs(self.logs_dir)
 
     def _initialize_files(self):
         # Initialize agents file if it doesn't exist
@@ -79,4 +82,41 @@ class Storage:
         for tool in tools:
             if tool.name == name:
                 return tool
-        return None 
+        return None
+
+    def save_interaction_log(self, agent_name: str, log_data: Dict):
+        """Save an interaction log for an agent."""
+        # Create a timestamp-based filename
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{agent_name}_{timestamp}.json"
+        filepath = os.path.join(self.logs_dir, filename)
+        
+        # Add timestamp to log data
+        log_data['timestamp'] = datetime.now().isoformat()
+        
+        # Save the log
+        with open(filepath, 'w') as f:
+            json.dump(log_data, f, indent=2, cls=DateTimeEncoder)
+
+    def get_agent_logs(self, agent_name: str, limit: int = 10) -> List[Dict]:
+        """Get the most recent interaction logs for an agent."""
+        logs = []
+        try:
+            # Get all log files for this agent
+            log_files = [f for f in os.listdir(self.logs_dir) 
+                        if f.startswith(f"{agent_name}_") and f.endswith('.json')]
+            
+            # Sort by timestamp (newest first)
+            log_files.sort(reverse=True)
+            
+            # Load the most recent logs
+            for filename in log_files[:limit]:
+                filepath = os.path.join(self.logs_dir, filename)
+                with open(filepath, 'r') as f:
+                    log_data = json.load(f)
+                    logs.append(log_data)
+                    
+        except Exception as e:
+            print(f"Error loading logs: {str(e)}")
+            
+        return logs 

@@ -82,8 +82,22 @@ def create_tool():
     storage.save_tools(tools)
     return jsonify(vars(tool)), 201
 
-def execute_http_tool(tool: Tool, params: dict) -> str:
-    """Execute an HTTP API tool with the given parameters."""
+def execute_http_tool(tool: Tool, params: dict) -> tuple[str, dict]:
+    """Execute an HTTP API tool with the given parameters.
+    Returns a tuple of (response_text, debug_info)"""
+    debug_info = {
+        'timestamp': datetime.now().isoformat(),
+        'tool_name': tool.name,
+        'request': {
+            'method': tool.config['http_method'],
+            'base_url': tool.config['base_url'],
+            'endpoint_path': tool.config['endpoint_path'],
+            'combined_url': urljoin(tool.config['base_url'], tool.config['endpoint_path']),
+            'headers': tool.config['headers'],
+            'params': params
+        }
+    }
+    
     try:
         # Construct the full URL
         url = urljoin(tool.config['base_url'], tool.config['endpoint_path'])
@@ -97,6 +111,7 @@ def execute_http_tool(tool: Tool, params: dict) -> str:
             # Replace placeholders in the template
             template = Template(tool.config['body_template'])
             body = json.loads(template.substitute(params))
+            debug_info['request']['body'] = body
         
         # Make the request
         response = requests.request(
@@ -110,10 +125,18 @@ def execute_http_tool(tool: Tool, params: dict) -> str:
         # Update last_used timestamp
         tool.last_used = datetime.now()
         
-        # Return the response
-        return f"Tool '{tool.name}' executed successfully. Response: {response.text}"
+        # Add response info to debug
+        debug_info['response'] = {
+            'status_code': response.status_code,
+            'headers': dict(response.headers),
+            'text': response.text[:1000] + '...' if len(response.text) > 1000 else response.text
+        }
+        
+        # Return both response and debug info
+        return f"Tool '{tool.name}' executed successfully. Response: {response.text}", debug_info
     except Exception as e:
-        return f"Error executing tool '{tool.name}': {str(e)}"
+        debug_info['error'] = str(e)
+        return f"Error executing tool '{tool.name}': {str(e)}", debug_info
 
 @app.route('/ask/<agent_name>', methods=['POST'])
 def ask_agent(agent_name):
@@ -122,9 +145,19 @@ def ask_agent(agent_name):
         if not agent:
             return jsonify({'error': f'Agent {agent_name} not found'}), 404
 
-        question = request.json.get('question')
+        data = request.get_json()
+        question = data.get('question')
+        debug_mode = data.get('debug', False)  # Only used for frontend display
+        
         if not question:
             return jsonify({'error': 'No question provided'}), 400
+
+        debug_log = []
+        debug_log.append({
+            'timestamp': datetime.now().isoformat(),
+            'event': 'request_received',
+            'question': question
+        })
 
         # Update agent's last active timestamp
         agent.last_active = datetime.now()
@@ -142,6 +175,12 @@ def ask_agent(agent_name):
             if tool:
                 available_tools.append(tool)
 
+        debug_log.append({
+            'timestamp': datetime.now().isoformat(),
+            'event': 'tools_loaded',
+            'available_tools': [tool.name for tool in available_tools]
+        })
+
         # Create a system message that includes tool information
         system_message = f"""You are an AI assistant with access to the following tools:
 {json.dumps([{'name': tool.name, 'description': tool.description} for tool in available_tools], indent=2)}
@@ -156,6 +195,14 @@ When you need to use a tool, respond with a JSON object in this format:
 }}
 
 Otherwise, respond normally to the user's question."""
+
+        debug_log.append({
+            'timestamp': datetime.now().isoformat(),
+            'event': 'groq_api_call',
+            'model': agent.model,
+            'temperature': agent.temperature,
+            'max_tokens': agent.max_tokens
+        })
 
         # Get response from Groq
         chat_completion = client.chat.completions.create(
@@ -176,19 +223,54 @@ Otherwise, respond normally to the user's question."""
 
         response = chat_completion.choices[0].message.content
 
+        debug_log.append({
+            'timestamp': datetime.now().isoformat(),
+            'event': 'groq_response_received',
+            'response': response
+        })
+
         # Check if the response is a tool usage request
         try:
             tool_request = json.loads(response)
             if isinstance(tool_request, dict) and 'tool' in tool_request and 'params' in tool_request:
+                debug_log.append({
+                    'timestamp': datetime.now().isoformat(),
+                    'event': 'tool_request_detected',
+                    'tool_request': tool_request
+                })
+
                 # Find the requested tool
                 tool_name = tool_request['tool']
                 tool = next((t for t in available_tools if t.name == tool_name), None)
                 
                 if tool:
+                    debug_log.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'event': 'tool_execution_started',
+                        'tool': tool_name,
+                        'params': tool_request['params']
+                    })
+
                     # Execute the tool
-                    tool_result = execute_http_tool(tool, tool_request['params'])
+                    tool_result, tool_debug = execute_http_tool(tool, tool_request['params'])
                     
-                    # Get a final response from the AI about the tool result
+                    debug_log.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'event': 'tool_execution_completed',
+                        'tool': tool_name,
+                        'result': tool_result,
+                        'debug_info': tool_debug
+                    })
+
+                    debug_log.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'event': 'groq_api_call',
+                        'model': agent.model,
+                        'temperature': agent.temperature,
+                        'max_tokens': agent.max_tokens,
+                        'context': 'tool_result_interpretation'
+                    })
+
                     final_response = client.chat.completions.create(
                         messages=[
                             {
@@ -213,13 +295,41 @@ Otherwise, respond normally to the user's question."""
                         max_tokens=agent.max_tokens,
                     )
                     response = final_response.choices[0].message.content
+
+                    debug_log.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'event': 'groq_response_received',
+                        'response': response,
+                        'context': 'tool_result_interpretation'
+                    })
                 else:
                     response = f"Error: Tool '{tool_name}' not found or not available to this agent."
+                    debug_log.append({
+                        'timestamp': datetime.now().isoformat(),
+                        'event': 'tool_not_found',
+                        'tool': tool_name
+                    })
         except json.JSONDecodeError:
             # Response is not a tool usage request, use it as is
-            pass
+            debug_log.append({
+                'timestamp': datetime.now().isoformat(),
+                'event': 'no_tool_request',
+                'response': response
+            })
 
-        return jsonify({'response': response})
+        # Save the interaction log
+        log_data = {
+            'agent_name': agent_name,
+            'question': question,
+            'response': response,
+            'debug_log': debug_log
+        }
+        storage.save_interaction_log(agent_name, log_data)
+
+        return jsonify({
+            'response': response,
+            'debug_log': debug_log
+        })
 
     except Exception as e:
         print(f"Error in /ask endpoint: {str(e)}")
