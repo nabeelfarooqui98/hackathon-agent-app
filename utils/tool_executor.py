@@ -15,18 +15,30 @@ def execute_http_tool(tool: Tool, params: dict) -> tuple[str, dict]:
             'method': tool.config['http_method'],
             'base_url': tool.config['base_url'],
             'endpoint_path': tool.config['endpoint_path'],
-            'combined_url': urljoin(tool.config['base_url'], tool.config['endpoint_path']),
             'headers': tool.config['headers'],
             'params': params
         }
     }
     
     try:
-        # Construct the full URL
-        url = urljoin(tool.config['base_url'], tool.config['endpoint_path'])
+        # Replace path parameters in endpoint_path
+        endpoint_path = tool.config['endpoint_path']
+        for param_name, param_value in params.items():
+            placeholder = f"<{param_name}>"
+            if placeholder in endpoint_path:
+                endpoint_path = endpoint_path.replace(placeholder, str(param_value))
+                # Remove the used parameter from params to avoid duplicate in query string
+                params = {k: v for k, v in params.items() if k != param_name}
         
-        # Prepare headers
+        # Construct the full URL
+        url = urljoin(tool.config['base_url'], endpoint_path)
+        debug_info['request']['endpoint_path'] = endpoint_path
+        debug_info['request']['combined_url'] = url
+        
+        # Prepare headers with default User-Agent
         headers = tool.config['headers'].copy()
+        headers['User-Agent'] = 'Mozilla/5.0'
+        headers['Accept'] = 'application/json'
         
         # Prepare body if it exists
         body = None

@@ -108,7 +108,7 @@ def ask_agent(agent_name):
         system_message = f"""You are an AI assistant with access to the following tools:
 {json.dumps([{'name': tool.name, 'description': tool.description} for tool in available_tools], indent=2)}
 
-When you need to use a tool, respond with a JSON object in this format:
+Always prioritize using a tool before trying to answer the question yourself. When you need to use a tool, respond with ONLY a JSON object in this format. You can also return parameters like param1 and param2, they can be called something else as per the tool's description:
 {{
     "tool": "tool_name",
     "params": {{
