@@ -149,6 +149,7 @@ The project uses:
 - Bootstrap for the frontend UI
 - Groq for LLM capabilities
 - Docker for containerization
+- 99% of the code was generated using [Cursor](https://www.cursor.com/)
 
 ## License
 
