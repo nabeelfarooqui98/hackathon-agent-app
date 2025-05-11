@@ -1,6 +1,8 @@
 # ToolMind
 
-ToolMind is an advanced AI agent orchestration platform that enables the creation and management of AI agents with tool-using capabilities. It provides a user-friendly interface for building, configuring, and interacting with AI agents that can leverage various tools to perform complex tasks.
+ToolMind is a simple AI agent orchestration platform that enables the creation and management of AI agents with tool-using capabilities. It provides a user-friendly interface for building, configuring, and interacting with AI agents that can leverage various tools to perform complex tasks.
+
+*This project was created for learning purposes.*
 
 ## Features
 
@@ -89,6 +91,24 @@ ToolMind is an advanced AI agent orchestration platform that enables the creatio
    - Type your question or request
    - View the agent's response and tool usage
    - Enable debug mode for detailed execution logs
+
+## Limitations
+
+- **Tool Support**
+  - Currently only supports HTTP API calling tools
+  - Tested primarily with GET APIs
+  - No built-in support for authentication mechanisms
+  - Limited to basic HTTP request/response patterns
+
+- **Agent Capabilities**
+  - Agents can only use one tool per query
+  - No support for tool chaining or sequential tool execution
+  - Agents cannot combine multiple tools in a single response
+
+- **Integration Constraints**
+  - Tools and agents cannot be chained together
+  - No support for complex workflows or multi-step operations
+  - Limited to single-step tool execution
 
 ## Development
 
