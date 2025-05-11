@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, jsonify
 import os
 from groq import Groq
 from dotenv import load_dotenv
-import pathlib
 from datetime import datetime
 from models import Agent, Tool
 from storage import Storage
@@ -20,7 +19,6 @@ storage = Storage()
 # Debug: Print if API key is loaded
 api_key = os.getenv("GROQ_API_KEY")
 print(f"API Key loaded: {'Yes' if api_key else 'No'}")
-print(f"API Key: {api_key}")
 if not api_key:
     raise ValueError("GROQ_API_KEY not found in environment variables. Please check your .env file.")
 

@@ -1,7 +1,7 @@
 [
   {
-    "name": "ConversationAgent",
-    "description": "Conversation Agent",
+    "name": "FactsAgent",
+    "description": "Agent that provides facts about various topics",
     "model": "meta-llama/llama-4-scout-17b-16e-instruct",
     "temperature": 0.7,
     "max_tokens": 1024,
