@@ -370,14 +370,4 @@ Which agent would be most suitable for this question? Respond with a JSON object
 
     except Exception as e:
         print(f"Error in /recommend_agent endpoint: {str(e)}")
-        # If any other error occurs, use the first available agent
-        try:
-            agents = storage.load_agents()
-            if agents:
-                return jsonify({
-                    'agent': agents[0].name,
-                    'reason': f"Default agent selected due to error: {str(e)}"
-                })
-        except:
-            pass
         return jsonify({'error': str(e)}), 500 
