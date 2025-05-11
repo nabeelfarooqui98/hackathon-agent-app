@@ -635,6 +635,9 @@
                     checkbox.addEventListener('change', updateToolCheckboxes);
                 });
                 noToolsCheckbox.addEventListener('change', updateToolCheckboxes);
+                
+                // Initial update of tool checkboxes
+                updateToolCheckboxes();
             } catch (error) {
                 console.error('Error loading tools:', error);
             }
@@ -643,7 +646,9 @@
         // Update tool checkboxes based on "no tools" selection
         function updateToolCheckboxes() {
             const noToolsChecked = document.getElementById('noTools').checked;
-            document.querySelectorAll('.tool-checkbox').forEach(checkbox => {
+            const toolCheckboxes = document.querySelectorAll('.tool-checkbox');
+            
+            toolCheckboxes.forEach(checkbox => {
                 checkbox.disabled = noToolsChecked;
                 if (noToolsChecked) {
                     checkbox.checked = false;
