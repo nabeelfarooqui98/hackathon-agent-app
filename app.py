@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import os
 from groq import Groq
 from dotenv import load_dotenv
+import pathlib
 from datetime import datetime
 from models import Agent, Tool
 from storage import Storage
@@ -9,6 +10,7 @@ import requests
 from urllib.parse import urljoin
 import json
 from string import Template
+from routes.tools import tools_bp
 
 # Load environment variables
 load_dotenv(verbose=True)
@@ -16,9 +18,13 @@ load_dotenv(verbose=True)
 app = Flask(__name__)
 storage = Storage()
 
+# Register blueprints
+app.register_blueprint(tools_bp)
+
 # Debug: Print if API key is loaded
 api_key = os.getenv("GROQ_API_KEY")
 print(f"API Key loaded: {'Yes' if api_key else 'No'}")
+print(f"API Key: {api_key}")
 if not api_key:
     raise ValueError("GROQ_API_KEY not found in environment variables. Please check your .env file.")
 
@@ -66,19 +72,16 @@ def create_agent():
 
     return jsonify(agent.to_dict()), 201
 
-@app.route('/tools', methods=['GET'])
-def list_tools():
-    tools = storage.load_tools()
-    return jsonify([vars(tool) for tool in tools])
-
-@app.route('/tools', methods=['POST'])
-def create_tool():
-    data = request.json
-    tool = Tool(**data)
-    tools = storage.load_tools()
-    tools.append(tool)
-    storage.save_tools(tools)
-    return jsonify(vars(tool)), 201
+@app.route('/agents/<agent_name>', methods=['DELETE'])
+def delete_agent(agent_name):
+    try:
+        agents = storage.load_agents()
+        # Find and remove the agent
+        agents = [agent for agent in agents if agent.name != agent_name]
+        storage.save_agents(agents)
+        return jsonify({'message': f'Agent {agent_name} deleted successfully'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 def execute_http_tool(tool: Tool, params: dict) -> tuple[str, dict]:
     """Execute an HTTP API tool with the given parameters.
@@ -456,37 +459,6 @@ Which agent would be most suitable for this question? Respond with a JSON object
                 })
         except:
             pass
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/agents/<agent_name>', methods=['DELETE'])
-def delete_agent(agent_name):
-    try:
-        agents = storage.load_agents()
-        # Find and remove the agent
-        agents = [agent for agent in agents if agent.name != agent_name]
-        storage.save_agents(agents)
-        return jsonify({'message': f'Agent {agent_name} deleted successfully'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/tools/<tool_name>', methods=['DELETE'])
-def delete_tool(tool_name):
-    try:
-        # Check if any agent is using this tool
-        agents = storage.load_agents()
-        agents_using_tool = [agent.name for agent in agents if tool_name in agent.tools]
-        
-        if agents_using_tool:
-            return jsonify({
-                'error': f'Cannot delete tool "{tool_name}" as it is being used by the following agents: {", ".join(agents_using_tool)}'
-            }), 400
-
-        # If no agents are using the tool, proceed with deletion
-        tools = storage.load_tools()
-        tools = [tool for tool in tools if tool.name != tool_name]
-        storage.save_tools(tools)
-        return jsonify({'message': f'Tool {tool_name} deleted successfully'})
-    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
