@@ -110,6 +110,31 @@ ToolMind is a simple AI agent orchestration platform that enables the creation a
   - No support for complex workflows or multi-step operations
   - Limited to single-step tool execution
 
+## Future Work
+
+- **MCP Server Integration**
+  - Add support for Model Context Protocol (MCP) servers
+  - Enable seamless integration with existing MCP implementations
+  - Support for MCP tool definitions and execution
+
+- **Framework Migration**
+  - Migrate to LangChain or similar AI framework
+  - Replace direct LLM interactions with framework abstractions
+  - Leverage framework features for better tool management
+  - Improved prompt engineering and chain management
+
+- **Enhanced Tool Support**
+  - Add support for authentication mechanisms
+  - Implement tool chaining capabilities
+  - Support for complex workflows and multi-step operations
+  - Integration with more tool types beyond HTTP APIs
+
+- **Agent Improvements**
+  - Enable multi-tool usage in single queries
+  - Support for agent chaining and collaboration
+  - Enhanced context management and memory
+  - Better error handling and recovery mechanisms
+
 ## Development
 
 The project uses:
