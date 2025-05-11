@@ -177,7 +177,7 @@ Otherwise, respond normally to the user's question."""
                     })
 
                     # Execute the tool
-                    from app import execute_http_tool  # Import here to avoid circular import
+                    from utils.tool_executor import execute_http_tool  # Import from new location
                     tool_result, tool_debug = execute_http_tool(tool, tool_request['params'])
                     
                     debug_log.append({
