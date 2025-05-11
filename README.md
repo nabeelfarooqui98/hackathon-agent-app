@@ -75,6 +75,8 @@ ToolMind is a simple AI agent orchestration platform that enables the creation a
 
 ## Usage
 
+The application comes with pre-configured sample agents and tools to help you get started.
+
 1. **Creating Agents**
    - Navigate to the Agents tab
    - Fill in the agent details (name, description, model)
@@ -91,6 +93,11 @@ ToolMind is a simple AI agent orchestration platform that enables the creation a
    - Type your question or request
    - View the agent's response and tool usage
    - Enable debug mode for detailed execution logs
+
+   Example questions:
+   - "Tell me a dad joke"
+   - "What is a good dog fact?"
+   - "What does the word baffled mean?"
 
 ## Limitations
 
